@@ -1,18 +1,15 @@
-name: Rebuild visualization data
+name: Scrape latest match data
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'data/**'
-      - 'src/**'
+  schedule:
+    - cron: "0 5 * * 1,4"   # Lunes y jueves 05:00 UTC = domingo y miércoles ~02:00 (hora Argentina, UTC-3)
+  workflow_dispatch: {}
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  scrape:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,14 +25,14 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Run build script
+      - name: Scrapear Wikipedia
         run: |
-          python -m src.build_site_data
+          python -m src.scraping.wikipedia_source
 
-      - name: Commit updated JSON
+      - name: Commit si hay partidos nuevos
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add docs/data/infered_score.json docs/data/bootstrap.json docs/data/results.json docs/data/network.json docs/data/standings.json
-          git commit -m "Auto-update visualization data" || echo "No changes"
+          git add data/matches_apertura_2026.json data/matches_clausura_2026.json
+          git commit -m "Auto-scrape: partidos actualizados desde Wikipedia" || echo "No changes"
           git push origin HEAD:main
