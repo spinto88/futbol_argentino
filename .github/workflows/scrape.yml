@@ -29,10 +29,29 @@ jobs:
         run: |
           python -m src.scraping.wikipedia_source
 
-      - name: Commit si hay partidos nuevos
+      - name: Chequear si hay partidos nuevos
+        id: diff
+        run: |
+          if git diff --quiet -- data/matches_apertura_2026.json data/matches_clausura_2026.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Se recalcula acá mismo (no alcanza con pushear y dejar que build.yml lo dispare: un
+      # push hecho con el GITHUB_TOKEN por defecto no dispara otros workflows en este repo, es
+      # una protección anti-loop de GitHub Actions).
+      - name: Recalcular el sitio
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          python -m src.build_site_data
+
+      - name: Commit y push
+        if: steps.diff.outputs.changed == 'true'
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add data/matches_apertura_2026.json data/matches_clausura_2026.json
-          git commit -m "Auto-scrape: partidos actualizados desde Wikipedia" || echo "No changes"
+          git add docs/data/infered_score.json docs/data/bootstrap.json docs/data/results.json docs/data/network.json docs/data/standings.json
+          git commit -m "Auto-scrape: partidos y ranking actualizados"
           git push origin HEAD:main
